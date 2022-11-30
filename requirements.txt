@@ -1,1 +1,4 @@
-SQLAlchemy==1.4.44
+fire==0.4.0
+psycopg2==2.9.5
+six==1.16.0
+termcolor==2.1.1

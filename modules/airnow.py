@@ -1,18 +1,13 @@
+import glob
 import csv
 import json
 from typing import List
-from functools import partial
 import datetime
 
 import psycopg2
 
-from sqlalchemy import create_engine, Column, String, text, Numeric, update, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from modules.common import Source, Record, Sink, SourcePath
 
-from modules.common import Source, Record, Sink
-
-Base = declarative_base()
-NonNullColumn = partial(Column, nullable=False)
 
 class AirNowRecord(Record):
 
@@ -108,11 +103,20 @@ class PostgresSink(Sink):
     def write_multiple(self, records: List[AirNowRecord]):
         cur = self.conn.cursor()
         print([r.get_values() for r in records])
-        batch_size = 100
+        batch_size = 200
         for batch_start_idx in range(0, len(records), batch_size):
             print(batch_start_idx, batch_start_idx+batch_size)
-            cur.executemany("INSERT INTO pm25_measurements (location, datetime, aqi, aqi_cat, conc) VALUES (%s, %s, %s, %s, %s)", [r.get_values() for r in records[batch_start_idx:batch_start_idx+batch_size]])
+            cur.executemany("INSERT INTO pm25_measurements (location, datetime, aqi, aqi_cat, conc) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", [r.get_values() for r in records[batch_start_idx:batch_start_idx+batch_size]])
         # commit the changes to the database
         self.conn.commit()
         # close communication with the database
         cur.close()
+
+
+class AirNowSourcePath(SourcePath):
+    def __init__(self, source_path, matching_glob):
+        super().__init__(source_path)
+        self.matching_glob = matching_glob
+
+    def list(self):
+        return glob.iglob(self.source_path + self.matching_glob, recursive=True)
