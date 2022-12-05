@@ -1,8 +1,8 @@
 import fire
 
-from modules.airnow import HistoricalSource, CurrentSource, PostgresSink, AirNowRecord, AirNowSourcePath
+from modules.airnow import HistoricalSource, CurrentSource, AirNowSourcePath
+from modules.common import PostgresSink
 
-# source_path = "/Users/solosynth1/workspace/pdd-data-analytics/research-assistant/airnow-scraper/output/dos/"
 
 def main(source_path, type):
     """A simple pipeline to ingest AirNow data from files into postgres database.
@@ -22,17 +22,13 @@ def main(source_path, type):
         file_paths = source.list()
         for file_path in file_paths:
             records = HistoricalSource(file_path).read()
-            sink.write_multiple(records)
+            sink.write(records, upsert_columns=('datetime', 'location'))
     elif type == "current":
-        source = AirNowSourcePath(source_path, matching_glob='**/*PM2.5.json')
+        source = AirNowSourcePath(source_path, matching_glob='**/*.json')
         file_paths = source.list()
-
-    # print(records[0])
-    # #
-    # print(CurrentSource(source_path + 'current/Beijing/Beijing-PM2.5.json').read())
-    # sink = PostgresSink(db='airnow', host='localhost', user='postgres', password='changeme', table='pm25_measurements')
-    # # sink.write(records[0])
-    # sink.write_multiple(records)
+        for file_path in file_paths:
+            records = CurrentSource(file_path).read()
+            sink.write(records, upsert_columns=('datetime', 'location'))
 
 
 if __name__ == '__main__':

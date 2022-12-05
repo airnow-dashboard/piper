@@ -1,12 +1,11 @@
+import datetime
 import glob
 import csv
 import json
 from typing import List
-import datetime
+from datetime import timedelta
 
-import psycopg2
-
-from modules.common import Source, Record, Sink, SourcePath
+from modules.common import Source, Record, SourcePath
 
 
 class AirNowRecord(Record):
@@ -19,98 +18,63 @@ class AirNowRecord(Record):
     #     conc numeric null,
     #     PRIMARY KEY(datetime, location)
     # ) PARTITION BY RANGE (datetime);
+    fields = ["location", "datetime", "aqi", "aqi_cat", "conc"]
 
-    def __init__(self, location, datetime, aqi, aqi_cat, conc):
-        self.__data = {
-            "location": location,
-            "datetime": datetime,
-            "aqi": aqi,
-            "aqi_cat": aqi_cat,
-            "conc": conc
-        }
-
-    def get(self):
-        return self.__data
-
-    def __repr__(self):
-        return str(self.__data)
-
-    def get_fields(self):
-        return "(location, datetime, aqi, aqi_cat, conc)"
-
-    def get_values(self):
-        # return "('{location}', '{datetime}', {aqi}, {aqi_cat}, {conc})".format_map(self.__data)
-        return (
-            self.__data["location"],
-            self.__data["datetime"],
-            self.__data["aqi"],
-            self.__data["aqi_cat"],
-            self.__data["conc"]
-        )
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 class HistoricalSource(Source):
     def __init__(self, csv_file):
         self.csv_file = csv_file
 
-    def read(self):
-        def parse(row) -> dict:
-            # 2022-11-01 01:00 AM
-            parsed_datetime = datetime.datetime.strptime(row.get("Date (LT)"), "%Y-%m-%d %I:%M %p")
-            return {
-                "location": row.get("Site"),
-                "datetime": row.get("Date (LT)"),
-                "aqi": row.get("AQI"),
-                "aqi_cat": row.get("AQI Category"),
-                "conc": row.get("Raw Conc."),
-            }
+    def read(self) -> List[AirNowRecord]:
+        def parse(row) -> AirNowRecord:
+            return AirNowRecord(
+                location=row.get("Site"),
+                datetime=row.get("Date (LT)"),
+                aqi=row.get("AQI"),
+                aqi_cat=row.get("AQI Category"),
+                conc=row.get("Raw Conc.")
+            )
 
         with open(self.csv_file) as f:
             rows = list(csv.DictReader(f))
-        return [AirNowRecord(**parse(row)) for row in rows]
+        return [parse(row) for row in rows]
 
 
 class CurrentSource(Source):
     def __init__(self, json_file):
         self.json_file = json_file
+        self.step_increment_hours = 1  # values are recorded every 1 hour
+        self.datetime_format = "%m/%d/%Y %I:%M:%S %p"
 
-    def read(self):
+    def read(self) -> List[AirNowRecord]:
+        def parse(raw_obj) -> List[AirNowRecord]:
+            records = []
+            for (location, value) in raw_obj.items():
+                for monitor in value['monitors']:
+                    if monitor['parameter'] != "PM2.5":
+                        continue
+                    start_time = datetime.datetime.strptime(monitor.get('beginTimeLT'), self.datetime_format)
+                    aqis = monitor.get('aqi')
+                    aqi_cats = monitor.get('aqiCat')
+                    concs = monitor.get('conc')
+
+                    for idx in range(len(aqis)):
+                        records.append(AirNowRecord(
+                            location=location,
+                            datetime=start_time + (idx * timedelta(hours=self.step_increment_hours)),
+                            aqi=aqis[idx],
+                            aqi_cat=aqi_cats[idx],
+                            conc=concs[idx]
+                        ))
+            return records
+
         with open(self.json_file) as f:
             raw_obj = json.load(f)
 
-        return raw_obj
-
-
-class PostgresSink(Sink):
-    def __init__(self, host: str, db: str, table: str, user: str, password: str):
-        self.host = host
-        self.db = db
-        self.table = table
-        self.user = user
-        self.password = password
-        self.conn = psycopg2.connect(
-            "dbname='{}' user='{}' host='{}' password='{}'".format(self.db, self.user, self.host, self.password))
-        print(self.conn)
-
-    def write(self, record: AirNowRecord):
-        cur = self.conn.cursor()
-        cur.execute("INSERT INTO pm25_measurements {} VALUES {}".format(record.get_fields(), record.get_values()))
-        # commit the changes to the database
-        self.conn.commit()
-        # close communication with the database
-        cur.close()
-
-    def write_multiple(self, records: List[AirNowRecord]):
-        cur = self.conn.cursor()
-        print([r.get_values() for r in records])
-        batch_size = 200
-        for batch_start_idx in range(0, len(records), batch_size):
-            print(batch_start_idx, batch_start_idx+batch_size)
-            cur.executemany("INSERT INTO pm25_measurements (location, datetime, aqi, aqi_cat, conc) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", [r.get_values() for r in records[batch_start_idx:batch_start_idx+batch_size]])
-        # commit the changes to the database
-        self.conn.commit()
-        # close communication with the database
-        cur.close()
+        return parse(raw_obj)
 
 
 class AirNowSourcePath(SourcePath):
