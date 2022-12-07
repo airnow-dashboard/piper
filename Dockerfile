@@ -1,3 +1,11 @@
-FROM alpine:latest
+FROM python:3.9-slim
 
-# TODO: finish this
+WORKDIR /app
+
+COPY . /app
+
+RUN apt update && apt -y install libpq-dev gcc
+
+RUN pip install -r requirements.txt
+
+ENTRYPOINT ["python3", "main.py"]
