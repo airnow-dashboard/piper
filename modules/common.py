@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import psycopg2
 import psycopg2.extras
@@ -69,7 +69,7 @@ class PostgresSink(Sink):
             "dbname='{}' user='{}' host='{}' password='{}'".format(self.db, self.user, self.host, self.password))
         self.execute_page_size = 500
 
-    def write(self, record: Union[Record, List[Record]], upsert_columns=None):
+    def write(self, record: Union[Record, List[Record]], upsert_columns: Tuple = None):
         is_list = type(record) == list
 
         if is_list:

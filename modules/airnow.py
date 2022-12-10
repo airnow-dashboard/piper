@@ -1,10 +1,17 @@
 import glob
 import csv
 import json
-from typing import List
+from typing import List, Tuple
 from datetime import datetime, timedelta
 
 from modules.common import Source, Record, SourcePath
+
+
+class CityRecord(Record):
+    fields = ['location', 'latitude', 'longitude', 'latlon']
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 class AirNowRecord(Record):
@@ -97,9 +104,18 @@ class CurrentSource(Source):
     def __repr__(self):
         return self.json_file
 
-    def parse(self, raw_obj) -> List[AirNowRecord]:
-        records = []
+    def parse(self, raw_obj) -> Tuple[List[CityRecord], List[AirNowRecord]]:
+        pm25_records = []
+        cities_records = []
         for (location, value) in raw_obj.items():
+            longitude, latitude = value['coordinates']
+            latlon = "{},{}".format(latitude, longitude)
+            cities_records.append(CityRecord(
+                location=location,
+                longitude=longitude,
+                latitude=latitude,
+                latlon=latlon
+            ))
             for monitor in value['monitors']:
                 if monitor['parameter'] != "PM2.5":
                     continue
@@ -109,19 +125,19 @@ class CurrentSource(Source):
                 concs = monitor.get('conc')
 
                 for idx in range(len(aqis)):
-                    records.append(AirNowRecord(
+                    pm25_records.append(AirNowRecord(
                         location=location,
                         datetime=start_time + (idx * timedelta(hours=self.step_increment_hours)),
                         aqi=aqis[idx] if aqis[idx] is not None else -999,
                         aqi_cat=self.aqi_cat_map[aqi_cats[idx]],
                         conc=concs[idx] if concs[idx] is not None else -999
                     ))
-        return records
 
-    def read(self) -> List[AirNowRecord]:
+        return cities_records, pm25_records
+
+    def read(self) -> Tuple[List[CityRecord], List[AirNowRecord]]:
         with open(self.json_file) as f:
             raw_obj = json.load(f)
-
         return self.parse(raw_obj)
 
 
