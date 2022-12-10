@@ -28,6 +28,9 @@ class HistoricalSource(Source):
         self.csv_file = csv_file
         self.datetime_format = "%Y-%m-%d %I:%M %p"
 
+    def __repr__(self):
+        return self.csv_file
+
     def parse(self, rows) -> List[AirNowRecord]:
         records_map = {}
         # keys = []
@@ -90,6 +93,9 @@ class CurrentSource(Source):
             5: 'Very Unhealthy',
             6: 'Hazardous'
         }
+
+    def __repr__(self):
+        return self.json_file
 
     def parse(self, raw_obj) -> List[AirNowRecord]:
         records = []
