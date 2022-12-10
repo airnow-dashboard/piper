@@ -21,13 +21,14 @@ def main(source_path, type):
         source = AirNowSourcePath(source_path, matching_glob='**/*PM2.5*.csv')
         file_paths = source.list()
         for file_path in file_paths:
+            print("Processing {}...".format(file_path))
             records = HistoricalSource(file_path).read()
-            print(records)
             sink.write(records, upsert_columns=('datetime', 'location'))
     elif type == "current":
         source = AirNowSourcePath(source_path, matching_glob='**/*.json')
         file_paths = source.list()
         for file_path in file_paths:
+            print("Processing {}...".format(file_path))
             records = CurrentSource(file_path).read()
             sink.write(records, upsert_columns=('datetime', 'location'))
 
