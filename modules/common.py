@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Union
 
 import psycopg2
+import psycopg2.extras
 
 
 class Record:
@@ -21,6 +22,18 @@ class Record:
 
     def get_values(self):
         return [self.__data[field] if field in self.__data else None for field in self.fields]
+
+    def contains_field(self, field):
+        if field not in self.fields:
+            raise KeyError("field {} does not exist in the record".format(field))
+
+    def get_value(self, field):
+        self.contains_field(field)
+        return self.__data[field]
+
+    def get_field_index(self, field):
+        self.contains_field(field)
+        return self.fields.index(field)
 
 
 class Source(ABC):
@@ -58,15 +71,18 @@ class PostgresSink(Sink):
     def write(self, record: Union[Record, List[Record]], upsert_columns=None):
         is_list = type(record) == list
 
-        # generates upsert query
         if is_list:
-            fields = record[0].get_fields()
+            data = record
         else:
-            fields = record.get_fields()
-        query = "INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ".format(
+            data = [record]
+
+        # generates upsert query
+        fields = data[0].get_fields()
+
+        query = "INSERT INTO {} ({}) VALUES %s ON CONFLICT ".format(
             self.table,
             ', '.join(fields),
-            ', '.join(["%s" for _ in fields])
+            # ', '.join(["%s" for _ in fields])
         )
         if not upsert_columns:
             query += "DO NOTHING"
@@ -75,19 +91,11 @@ class PostgresSink(Sink):
                 ", ".join(upsert_columns),
                 ", ".join(["{} = EXCLUDED.{}".format(field, field) for field in fields])
             )
+            # data = self.deduplicate_by_columns(data, upsert_columns)
 
         cur = self.conn.cursor()
 
-        if is_list:
-            batch_size = 200
-            for batch_start_idx in range(0, len(record), batch_size):
-                print(batch_start_idx, batch_start_idx + batch_size)
-                cur.executemany(
-                    query,
-                    [r.get_values() for r in record[batch_start_idx:batch_start_idx + batch_size]]
-                )
-        else:
-            cur.execute(query, record.get_values())
+        psycopg2.extras.execute_values(cur, query, [r.get_values() for r in data], template=None, page_size=200, fetch=False)
 
         # commit the changes to the database
         self.conn.commit()

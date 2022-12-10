@@ -15,13 +15,14 @@ def main(source_path, type):
         raise TypeError("Unknown type '{}'".format(type))
 
     # initialize postgres
-    sink = PostgresSink(db='airnow', host='localhost', user='postgres', password='changeme', table='pm25_measurements')
+    sink = PostgresSink(db='airnow', host='35.225.50.70', user='airnow_admin', password='changeme', table='pm25_measurements')
 
     if type == "historical":
         source = AirNowSourcePath(source_path, matching_glob='**/*PM2.5*YTD.csv')
         file_paths = source.list()
         for file_path in file_paths:
             records = HistoricalSource(file_path).read()
+            print(records)
             sink.write(records, upsert_columns=('datetime', 'location'))
     elif type == "current":
         source = AirNowSourcePath(source_path, matching_glob='**/*.json')
