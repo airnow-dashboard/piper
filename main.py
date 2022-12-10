@@ -18,7 +18,7 @@ def main(source_path, type):
     sink = PostgresSink(db='airnow', host='35.225.50.70', user='airnow_admin', password='changeme', table='pm25_measurements')
 
     if type == "historical":
-        source = AirNowSourcePath(source_path, matching_glob='**/*PM2.5*YTD.csv')
+        source = AirNowSourcePath(source_path, matching_glob='**/*PM2.5*.csv')
         file_paths = source.list()
         for file_path in file_paths:
             records = HistoricalSource(file_path).read()

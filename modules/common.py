@@ -67,6 +67,7 @@ class PostgresSink(Sink):
         self.password = password
         self.conn = psycopg2.connect(
             "dbname='{}' user='{}' host='{}' password='{}'".format(self.db, self.user, self.host, self.password))
+        self.execute_page_size = 500
 
     def write(self, record: Union[Record, List[Record]], upsert_columns=None):
         is_list = type(record) == list
@@ -82,7 +83,6 @@ class PostgresSink(Sink):
         query = "INSERT INTO {} ({}) VALUES %s ON CONFLICT ".format(
             self.table,
             ', '.join(fields),
-            # ', '.join(["%s" for _ in fields])
         )
         if not upsert_columns:
             query += "DO NOTHING"
@@ -95,7 +95,12 @@ class PostgresSink(Sink):
 
         cur = self.conn.cursor()
 
-        psycopg2.extras.execute_values(cur, query, [r.get_values() for r in data], template=None, page_size=200, fetch=False)
+        psycopg2.extras.execute_values(
+            cur, query, [r.get_values() for r in data],
+            template=None,
+            page_size=self.execute_page_size,
+            fetch=False
+        )
 
         # commit the changes to the database
         self.conn.commit()

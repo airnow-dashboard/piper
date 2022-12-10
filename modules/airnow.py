@@ -62,9 +62,9 @@ class HistoricalSource(Source):
                 records_map[current_datetime_str] = AirNowRecord(
                     location=rows[0].get("Site"),
                     datetime=current_datetime_str,
-                    aqi=None,
-                    aqi_cat=None,
-                    conc=None
+                    aqi=-999,
+                    aqi_cat='N/A',
+                    conc=-999
                 )
             current_datetime += timedelta(hours=1)
         return list(records_map.values())
@@ -81,6 +81,15 @@ class CurrentSource(Source):
         self.json_file = json_file
         self.step_increment_hours = 1  # values are recorded every 1 hour
         self.datetime_format = "%m/%d/%Y %I:%M:%S %p"
+        self.aqi_cat_map = {
+            None: 'N/A',
+            1: 'Good',
+            2: 'Moderate',
+            3: 'Unhealthy for Sensitive Groups',
+            4: 'Unhealthy',
+            5: 'Very Unhealthy',
+            6: 'Hazardous'
+        }
 
     def parse(self, raw_obj) -> List[AirNowRecord]:
         records = []
@@ -97,9 +106,9 @@ class CurrentSource(Source):
                     records.append(AirNowRecord(
                         location=location,
                         datetime=start_time + (idx * timedelta(hours=self.step_increment_hours)),
-                        aqi=aqis[idx],
-                        aqi_cat=aqi_cats[idx],
-                        conc=concs[idx]
+                        aqi=aqis[idx] if aqis[idx] is not None else -999,
+                        aqi_cat=self.aqi_cat_map[aqi_cats[idx]],
+                        conc=concs[idx] if concs[idx] is not None else -999
                     ))
         return records
 
