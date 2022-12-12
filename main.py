@@ -23,6 +23,12 @@ city_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRN
                          db='airnow', table='cities')
 
 
+def process(source):
+    print("Processing {}...".format(source))
+    records = source.read()
+    pm25_sink.write(records, upsert_columns=('datetime', 'location'))
+
+
 def main(source_path, type):
     """A simple pipeline to ingest AirNow data from files into postgres database.
 
@@ -40,11 +46,6 @@ def main(source_path, type):
         source_files = list(source_path.list())
         logging.info("Fetched files: {}".format(source_files))
         sources = [HistoricalSource(s) for s in source_files]
-
-        def process(source):
-            print("Processing {}...".format(source))
-            records = source.read()
-            pm25_sink.write(records, upsert_columns=('datetime', 'location'))
 
         with Pool(multiprocess_thread_count) as p:
             p.map(process, sources)
@@ -64,6 +65,7 @@ def main(source_path, type):
             city_sink.write(city_records, upsert_columns=('location',))
             pm25_sink.write(pm25_records, upsert_columns=('datetime', 'location'))
         logging.info("Nothing else to do in the pipeline.")
+
 
 if __name__ == '__main__':
     logging.info("Starting piper.")
