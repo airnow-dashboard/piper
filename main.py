@@ -1,4 +1,5 @@
 from os import environ
+import logging
 from multiprocessing import Pool
 
 import fire
@@ -30,8 +31,12 @@ def main(source_path, type):
         raise TypeError("Unknown type '{}'".format(type))
 
     if type == "historical":
+        logging.info("Running 'historical' pipeline.")
+        logging.info("Getting files from {}...".format(source_path))
         source_path = AirNowSourcePath(source_path, matching_glob='**/*PM2.5*.csv')
-        sources = [HistoricalSource(s) for s in source_path.list()]
+        source_files = source_path.list()
+        logging.info("Fetched files: {}".format(source_files))
+        sources = [HistoricalSource(s) for s in source_files]
 
         def process(source):
             print("Processing {}...".format(source))
@@ -42,8 +47,12 @@ def main(source_path, type):
             p.map(process, sources)
 
     elif type == "current":
+        logging.info("Running 'current' pipeline.")
+        logging.info("Getting files from {}...".format(source_path))
         source_path = AirNowSourcePath(source_path, matching_glob='**/*.json')
-        sources = [CurrentSource(s) for s in source_path.list()]
+        source_files = source_path.list()
+        logging.info("Fetched files: {}".format(source_files))
+        sources = [CurrentSource(s) for s in source_files]
 
         for source in sources:
             print("Processing {}...".format(source))
@@ -53,4 +62,6 @@ def main(source_path, type):
 
 
 if __name__ == '__main__':
+    logging.info("Starting piper.")
     fire.Fire(main)
+    logging.info("Finished piper.")
