@@ -1,3 +1,4 @@
+from os import environ
 from multiprocessing import Pool
 
 import fire
@@ -5,14 +6,17 @@ import fire
 from modules.airnow import HistoricalSource, CurrentSource, AirNowSourcePath
 from modules.common import PostgresSink
 
-
 multiprocess_thread_count = 5
 
+AIRNOW_DB_HOST = environ.get('AIRNOW_DB_HOST', 'localhost')
+AIRNOW_DB_USER = environ.get('AIRNOW_DB_USER', 'airnow_admin')
+AIRNOW_DB_PASSWORD = environ.get('AIRNOW_DB_PASSWORD', 'changeme')
+
 # initialize postgres sinks
-pm25_sink = PostgresSink(db='airnow', host='35.225.50.70', user='airnow_admin', password='changeme',
-                    table='pm25_measurements')
-city_sink = PostgresSink(db='airnow', host='35.225.50.70', user='airnow_admin', password='changeme',
-                    table='cities')
+pm25_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
+                         db='airnow', table='pm25_measurements')
+city_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
+                         db='airnow', table='cities')
 
 
 def main(source_path, type):
