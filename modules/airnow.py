@@ -1,3 +1,4 @@
+import os
 import glob
 import csv
 import json
@@ -147,4 +148,4 @@ class AirNowSourcePath(SourcePath):
         self.matching_glob = matching_glob
 
     def list(self):
-        return glob.iglob(self.source_path + self.matching_glob, recursive=True)
+        return glob.iglob(os.path.join(self.source_path, self.matching_glob), recursive=True)

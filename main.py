@@ -1,3 +1,4 @@
+import sys
 from os import environ
 import logging
 from multiprocessing import Pool
@@ -6,6 +7,8 @@ import fire
 
 from modules.airnow import HistoricalSource, CurrentSource, AirNowSourcePath
 from modules.common import PostgresSink
+
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 multiprocess_thread_count = 5
 
@@ -34,7 +37,7 @@ def main(source_path, type):
         logging.info("Running 'historical' pipeline.")
         logging.info("Getting files from {}...".format(source_path))
         source_path = AirNowSourcePath(source_path, matching_glob='**/*PM2.5*.csv')
-        source_files = source_path.list()
+        source_files = list(source_path.list())
         logging.info("Fetched files: {}".format(source_files))
         sources = [HistoricalSource(s) for s in source_files]
 
@@ -45,12 +48,13 @@ def main(source_path, type):
 
         with Pool(multiprocess_thread_count) as p:
             p.map(process, sources)
+        logging.info("Nothing else to do in the pipeline.")
 
     elif type == "current":
         logging.info("Running 'current' pipeline.")
         logging.info("Getting files from {}...".format(source_path))
         source_path = AirNowSourcePath(source_path, matching_glob='**/*.json')
-        source_files = source_path.list()
+        source_files = list(source_path.list())
         logging.info("Fetched files: {}".format(source_files))
         sources = [CurrentSource(s) for s in source_files]
 
@@ -59,7 +63,7 @@ def main(source_path, type):
             city_records, pm25_records = source.read()
             city_sink.write(city_records, upsert_columns=('location',))
             pm25_sink.write(pm25_records, upsert_columns=('datetime', 'location'))
-
+        logging.info("Nothing else to do in the pipeline.")
 
 if __name__ == '__main__':
     logging.info("Starting piper.")
