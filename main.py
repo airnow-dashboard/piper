@@ -18,9 +18,9 @@ AIRNOW_DB_PASSWORD = environ.get('AIRNOW_DB_PASSWORD', 'changeme')
 
 # initialize postgres sinks
 pm25_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
-                         db='airnow', table='pm25_measurements')
+                         db='airnow', table='pm25_measurements', ssl=False)
 city_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
-                         db='airnow', table='cities')
+                         db='airnow', table='cities', ssl=False)
 
 
 def process(source):
@@ -47,6 +47,8 @@ def main(source_path, type):
         logging.info("Fetched files: {}".format(source_files))
         sources = [HistoricalSource(s) for s in source_files]
 
+        # for source in sources:
+        #     process(source)
         with Pool(multiprocess_thread_count) as p:
             p.map(process, sources)
         logging.info("Nothing else to do in the pipeline.")

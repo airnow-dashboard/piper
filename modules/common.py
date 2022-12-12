@@ -59,14 +59,15 @@ class SourcePath(ABC):
 
 
 class PostgresSink(Sink):
-    def __init__(self, host: str, db: str, table: str, user: str, password: str):
+    def __init__(self, host: str, db: str, table: str, user: str, password: str, ssl: bool = True):
         self.host = host
         self.db = db
         self.table = table
         self.user = user
         self.password = password
+        self.ssl_mode = 'require' if ssl else 'disable'
         self.conn = psycopg2.connect(
-            "dbname='{}' user='{}' host='{}' password='{}'".format(self.db, self.user, self.host, self.password))
+            "dbname='{}' user='{}' host='{}' password='{}' sslmode={}".format(self.db, self.user, self.host, self.password, self.ssl_mode))
         self.execute_page_size = 500
 
     def write(self, record: Union[Record, List[Record]], upsert_columns: Tuple = None):
