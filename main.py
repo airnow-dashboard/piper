@@ -1,7 +1,6 @@
 import sys
 from os import environ
 import logging
-from multiprocessing import Pool
 
 import fire
 
@@ -10,7 +9,6 @@ from modules.common import PostgresSink
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-multiprocess_thread_count = 5
 
 AIRNOW_DB_HOST = environ.get('AIRNOW_DB_HOST', 'localhost')
 AIRNOW_DB_USER = environ.get('AIRNOW_DB_USER', 'airnow_admin')
@@ -18,16 +16,9 @@ AIRNOW_DB_PASSWORD = environ.get('AIRNOW_DB_PASSWORD', 'changeme')
 
 # initialize postgres sinks
 pm25_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
-                         db='airnow', table='pm25_measurements', ssl=False)
+                         db='airnow', table='pm25_measurements')
 city_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
-                         db='airnow', table='cities', ssl=False)
-
-
-def process(source):
-    print("Processing {}...".format(source))
-    records = source.read()
-    pm25_sink.write(records, upsert_columns=('datetime', 'location'))
-
+                         db='airnow', table='cities')
 
 def main(source_path, type):
     """A simple pipeline to ingest AirNow data from files into postgres database.
@@ -47,10 +38,11 @@ def main(source_path, type):
         logging.info("Fetched files: {}".format(source_files))
         sources = [HistoricalSource(s) for s in source_files]
 
-        # for source in sources:
-        #     process(source)
-        with Pool(multiprocess_thread_count) as p:
-            p.map(process, sources)
+        for source in sources:
+            print("Processing {}...".format(source))
+            records = source.read()
+            pm25_sink.write(records, upsert_columns=('datetime', 'location'))
+
         logging.info("Nothing else to do in the pipeline.")
 
     elif type == "current":
