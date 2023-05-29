@@ -16,9 +16,9 @@ AIRNOW_DB_PASSWORD = environ.get('AIRNOW_DB_PASSWORD', 'changeme')
 
 # initialize postgres sinks
 pm25_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
-                         db='airnow', table='pm25_measurements')
+                         db='airnow', table='pm25_measurements', ssl=False)
 city_sink = PostgresSink(host=AIRNOW_DB_HOST, user=AIRNOW_DB_USER, password=AIRNOW_DB_PASSWORD,
-                         db='airnow', table='cities')
+                         db='airnow', table='cities', ssl=False)
 
 def main(source_path, type):
     """A simple pipeline to ingest AirNow data from files into postgres database.
